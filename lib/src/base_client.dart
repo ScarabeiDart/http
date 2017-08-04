@@ -6,12 +6,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:async/async.dart';
+import 'package:collection/collection.dart';
 
+import 'base_request.dart';
 import 'client.dart';
 import 'exception.dart';
 import 'request.dart';
 import 'response.dart';
+import 'streamed_response.dart';
 
 /// The abstract base class for an HTTP client. This is a mixin-style class;
 /// subclasses only need to implement [send] and maybe [close], and then they
@@ -22,14 +24,14 @@ abstract class BaseClient implements Client {
   ///
   /// For more fine-grained control over the request, use [send] instead.
   Future<Response> head(url, {Map<String, String> headers}) =>
-    send(new Request.head(url, headers: headers));
+    _sendUnstreamed("HEAD", url, headers);
 
   /// Sends an HTTP GET request with the given headers to the given URL, which
   /// can be a [Uri] or a [String].
   ///
   /// For more fine-grained control over the request, use [send] instead.
   Future<Response> get(url, {Map<String, String> headers}) =>
-    send(new Request.get(url, headers: headers));
+    _sendUnstreamed("GET", url, headers);
 
   /// Sends an HTTP POST request with the given headers and body to the given
   /// URL, which can be a [Uri] or a [String].
@@ -49,10 +51,9 @@ abstract class BaseClient implements Client {
   /// [encoding] defaults to UTF-8.
   ///
   /// For more fine-grained control over the request, use [send] instead.
-  Future<Response> post(url, body, {Map<String, String> headers,
+  Future<Response> post(url, {Map<String, String> headers, body,
       Encoding encoding}) =>
-    send(new Request.post(url, body, headers: headers,
-        encoding: encoding));
+    _sendUnstreamed("POST", url, headers, body, encoding);
 
   /// Sends an HTTP PUT request with the given headers and body to the given
   /// URL, which can be a [Uri] or a [String].
@@ -72,10 +73,9 @@ abstract class BaseClient implements Client {
   /// [encoding] defaults to UTF-8.
   ///
   /// For more fine-grained control over the request, use [send] instead.
-  Future<Response> put(url, body, {Map<String, String> headers,
+  Future<Response> put(url, {Map<String, String> headers, body,
       Encoding encoding}) =>
-    send(new Request.put(url, body, headers: headers,
-        encoding: encoding));
+    _sendUnstreamed("PUT", url, headers, body, encoding);
 
   /// Sends an HTTP PATCH request with the given headers and body to the given
   /// URL, which can be a [Uri] or a [String].
@@ -95,17 +95,16 @@ abstract class BaseClient implements Client {
   /// [encoding] defaults to UTF-8.
   ///
   /// For more fine-grained control over the request, use [send] instead.
-  Future<Response> patch(url, body, {Map<String, String> headers,
+  Future<Response> patch(url, {Map<String, String> headers, body,
       Encoding encoding}) =>
-    send(new Request.patch(url, body, headers: headers,
-        encoding: encoding));
+    _sendUnstreamed("PATCH", url, headers, body, encoding);
 
   /// Sends an HTTP DELETE request with the given headers to the given URL,
   /// which can be a [Uri] or a [String].
   ///
   /// For more fine-grained control over the request, use [send] instead.
   Future<Response> delete(url, {Map<String, String> headers}) =>
-      send(new Request.delete(url, headers: headers));
+    _sendUnstreamed("DELETE", url, headers);
 
   /// Sends an HTTP GET request with the given headers to the given URL, which
   /// can be a [Uri] or a [String], and returns a Future that completes to the
@@ -116,11 +115,11 @@ abstract class BaseClient implements Client {
   ///
   /// For more fine-grained control over the request and response, use [send] or
   /// [get] instead.
-  Future<String> read(url, {Map<String, String> headers}) async {
-    var response = await get(url, headers: headers);
-    _checkResponseSuccess(url, response);
-
-    return await response.readAsString();
+  Future<String> read(url, {Map<String, String> headers}) {
+    return get(url, headers: headers).then((response) {
+      _checkResponseSuccess(url, response);
+      return response.body;
+    });
   }
 
   /// Sends an HTTP GET request with the given headers to the given URL, which
@@ -132,11 +131,11 @@ abstract class BaseClient implements Client {
   ///
   /// For more fine-grained control over the request and response, use [send] or
   /// [get] instead.
-  Future<Uint8List> readBytes(url, {Map<String, String> headers}) async {
-    var response = await get(url, headers: headers);
-    _checkResponseSuccess(url, response);
-
-    return await collectBytes(response.read());
+  Future<Uint8List> readBytes(url, {Map<String, String> headers}) {
+    return get(url, headers: headers).then((response) {
+      _checkResponseSuccess(url, response);
+      return response.bodyBytes;
+    });
   }
 
   /// Sends an HTTP request and asynchronously returns the response.
@@ -146,7 +145,31 @@ abstract class BaseClient implements Client {
   /// state of the stream; it could have data written to it asynchronously at a
   /// later point, or it could already be closed when it's returned. Any
   /// internal HTTP errors should be wrapped as [ClientException]s.
-  Future<Response> send(Request request);
+  Future<StreamedResponse> send(BaseRequest request);
+
+  /// Sends a non-streaming [Request] and returns a non-streaming [Response].
+  Future<Response> _sendUnstreamed(String method, url,
+      Map<String, String> headers, [body, Encoding encoding]) async {
+
+    if (url is String) url = Uri.parse(url);
+    var request = new Request(method, url);
+
+    if (headers != null) request.headers.addAll(headers);
+    if (encoding != null) request.encoding = encoding;
+    if (body != null) {
+      if (body is String) {
+        request.body = body;
+      } else if (body is List) {
+        request.bodyBytes = DelegatingList.typed(body);
+      } else if (body is Map) {
+        request.bodyFields = DelegatingMap.typed(body);
+      } else {
+        throw new ArgumentError('Invalid request body "$body".');
+      }
+    }
+
+    return Response.fromStream(await send(request));
+  }
 
   /// Throws an error if [response] is not successful.
   void _checkResponseSuccess(url, Response response) {

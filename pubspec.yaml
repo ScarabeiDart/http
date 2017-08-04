@@ -1,18 +1,20 @@
 name: http
-version: 0.12.0-dev
+version: 0.11.3+14
 author: "Dart Team <misc@dartlang.org>"
 homepage: https://github.com/dart-lang/http
 description: A composable, Future-based API for making HTTP requests.
 dependencies:
-  async: "^1.13.0"
+  async: "^1.10.0"
   collection: "^1.5.0"
   http_parser: ">=0.0.1 <4.0.0"
   path: ">=0.9.0 <2.0.0"
   stack_trace: ">=0.9.1 <2.0.0"
+  scarabei: ^1.1.2
+
 dev_dependencies:
-  test: "^0.12.18"
-# Override dependency on package_resolver to enable test
-dependency_overrides:
-  package_resolver: '^1.0.0'
+  unittest: ">=0.9.0 <0.12.0"
+
 environment:
-  sdk: ">=1.24.0 <2.0.0"
+  sdk: ">=1.23.0 <2.0.0"
+
+

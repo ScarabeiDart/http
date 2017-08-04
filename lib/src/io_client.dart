@@ -8,9 +8,9 @@ import 'dart:io';
 import 'package:async/async.dart';
 
 import 'base_client.dart';
+import 'base_request.dart';
 import 'exception.dart';
-import 'request.dart';
-import 'response.dart';
+import 'streamed_response.dart';
 
 /// A `dart:io`-based HTTP client.
 ///
@@ -23,42 +23,45 @@ class IOClient extends BaseClient {
   IOClient([HttpClient inner]) : _inner = inner ?? new HttpClient();
 
   /// Sends an HTTP request and asynchronously returns the response.
-  Future<Response> send(Request request) async {
+  Future<StreamedResponse> send(BaseRequest request) async {
+    var stream = request.finalize();
+
     try {
       var ioRequest = await _inner.openUrl(request.method, request.url);
-      var context = request.context;
 
       ioRequest
-          ..followRedirects = context['io.followRedirects'] ?? true
-          ..maxRedirects = context['io.maxRedirects'] ?? 5
+          ..followRedirects = request.followRedirects
+          ..maxRedirects = request.maxRedirects
           ..contentLength = request.contentLength == null
               ? -1
               : request.contentLength
-          ..persistentConnection = context['io.persistentConnection'] ?? true;
+          ..persistentConnection = request.persistentConnection;
       request.headers.forEach((name, value) {
         ioRequest.headers.set(name, value);
       });
 
-      request.read().pipe(DelegatingStreamConsumer.typed<List<int>>(ioRequest));
-      var response = await ioRequest.done;
-
+      var response = await stream.pipe(
+          DelegatingStreamConsumer.typed(ioRequest));
       var headers = <String, String>{};
       response.headers.forEach((key, values) {
         headers[key] = values.join(',');
       });
 
-      return new Response(
-          _responseUrl(request, response),
-          response.statusCode,
-          reasonPhrase: response.reasonPhrase,
-          body: DelegatingStream.typed<List<int>>(response).handleError(
-              (error) => throw new ClientException(error.message, error.uri),
+      return new StreamedResponse(
+          DelegatingStream.typed<List<int>>(response).handleError((error) =>
+              throw new ClientException(error.message, error.uri),
               test: (error) => error is HttpException),
-          headers: headers);
+          response.statusCode,
+          contentLength: response.contentLength == -1
+              ? null
+              : response.contentLength,
+          request: request,
+          headers: headers,
+          isRedirect: response.isRedirect,
+          persistentConnection: response.persistentConnection,
+          reasonPhrase: response.reasonPhrase);
     } on HttpException catch (error) {
       throw new ClientException(error.message, error.uri);
-    } on SocketException catch (error) {
-      throw new ClientException(error.message, request.url);
     }
   }
 
@@ -67,20 +70,5 @@ class IOClient extends BaseClient {
   void close() {
     if (_inner != null) _inner.close(force: true);
     _inner = null;
-  }
-
-  /// Determines the finalUrl retrieved by evaluating any redirects received in
-  /// the [response] based on the initial [request].
-  Uri _responseUrl(Request request, HttpClientResponse response) {
-    var finalUrl = request.url;
-
-    for (var redirect in response.redirects) {
-      var location = redirect.location;
-
-      // Redirects can either be absolute or relative
-      finalUrl = location.isAbsolute ? location : finalUrl.resolveUri(location);
-    }
-
-    return finalUrl;
   }
 }

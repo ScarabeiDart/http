@@ -7,11 +7,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'base_client.dart';
-import 'handler.dart';
-import 'handler_client.dart';
+import 'base_request.dart';
 import 'io_client.dart';
-import 'request.dart';
 import 'response.dart';
+import 'streamed_response.dart';
 
 /// The interface for HTTP clients that take care of maintaining persistent
 /// connections across multiple requests to the same server. If you only need to
@@ -29,15 +28,6 @@ abstract class Client {
   /// throw an [UnsupportedError] otherwise. In the future, it will create a
   /// [BrowserClient] if `dart:html` is available.
   factory Client() => new IOClient();
-
-  /// Creates a new [Client] from a [handler] callback.
-  ///
-  /// The [handler] is a function that receives a [Request] and returns a
-  /// [Future<Response>]. It will be called when [Client.send] is invoked.
-  ///
-  /// When [Client.close] is called the [onClose] function will be called.
-  factory Client.handler(Handler handler, {void onClose()})
-      => new HandlerClient(handler, onClose ?? () {});
 
   /// Sends an HTTP HEAD request with the given headers to the given URL, which
   /// can be a [Uri] or a [String].
@@ -69,7 +59,7 @@ abstract class Client {
   /// [encoding] defaults to [UTF8].
   ///
   /// For more fine-grained control over the request, use [send] instead.
-  Future<Response> post(url, body, {Map<String, String> headers,
+  Future<Response> post(url, {Map<String, String> headers, body,
       Encoding encoding});
 
   /// Sends an HTTP PUT request with the given headers and body to the given
@@ -90,7 +80,7 @@ abstract class Client {
   /// [encoding] defaults to [UTF8].
   ///
   /// For more fine-grained control over the request, use [send] instead.
-  Future<Response> put(url, body, {Map<String, String> headers,
+  Future<Response> put(url, {Map<String, String> headers, body,
       Encoding encoding});
 
   /// Sends an HTTP PATCH request with the given headers and body to the given
@@ -111,7 +101,7 @@ abstract class Client {
   /// [encoding] defaults to [UTF8].
   ///
   /// For more fine-grained control over the request, use [send] instead.
-  Future<Response> patch(url, body, {Map<String, String> headers,
+  Future<Response> patch(url, {Map<String, String> headers, body,
       Encoding encoding});
 
   /// Sends an HTTP DELETE request with the given headers to the given URL,
@@ -143,7 +133,7 @@ abstract class Client {
   Future<Uint8List> readBytes(url, {Map<String, String> headers});
 
   /// Sends an HTTP request and asynchronously returns the response.
-  Future<Response> send(Request request);
+  Future<StreamedResponse> send(BaseRequest request);
 
   /// Closes the client and cleans up any resources associated with it. It's
   /// important to close each client when it's done being used; failing to do so

@@ -11,14 +11,18 @@ import 'src/client.dart';
 import 'src/response.dart';
 
 export 'src/base_client.dart';
+export 'src/base_request.dart';
+export 'src/base_response.dart';
+export 'src/byte_stream.dart';
 export 'src/client.dart';
 export 'src/exception.dart';
-export 'src/handler.dart';
 export 'src/io_client.dart';
-export 'src/middleware.dart';
-export 'src/pipeline.dart';
+export 'src/multipart_file.dart';
+export 'src/multipart_request.dart';
 export 'src/request.dart';
 export 'src/response.dart';
+export 'src/streamed_request.dart';
+export 'src/streamed_response.dart';
 
 /// Sends an HTTP HEAD request with the given headers to the given URL, which
 /// can be a [Uri] or a [String].
@@ -61,10 +65,10 @@ Future<Response> get(url, {Map<String, String> headers}) =>
 ///
 /// For more fine-grained control over the request, use [Request] or
 /// [StreamedRequest] instead.
-Future<Response> post(url, body, {Map<String, String> headers,
+Future<Response> post(url, {Map<String, String> headers, body,
     Encoding encoding}) =>
-  _withClient((client) => client.post(url, body,
-      headers: headers, encoding: encoding));
+  _withClient((client) => client.post(url,
+      headers: headers, body: body, encoding: encoding));
 
 /// Sends an HTTP PUT request with the given headers and body to the given URL,
 /// which can be a [Uri] or a [String].
@@ -85,10 +89,10 @@ Future<Response> post(url, body, {Map<String, String> headers,
 ///
 /// For more fine-grained control over the request, use [Request] or
 /// [StreamedRequest] instead.
-Future<Response> put(url, body, {Map<String, String> headers,
+Future<Response> put(url, {Map<String, String> headers, body,
     Encoding encoding}) =>
-  _withClient((client) => client.put(url, body,
-      headers: headers, encoding: encoding));
+  _withClient((client) => client.put(url,
+      headers: headers, body: body, encoding: encoding));
 
 /// Sends an HTTP PATCH request with the given headers and body to the given
 /// URL, which can be a [Uri] or a [String].
@@ -109,10 +113,10 @@ Future<Response> put(url, body, {Map<String, String> headers,
 ///
 /// For more fine-grained control over the request, use [Request] or
 /// [StreamedRequest] instead.
-Future<Response> patch(url, body, {Map<String, String> headers,
+Future<Response> patch(url, {Map<String, String> headers, body,
     Encoding encoding}) =>
-  _withClient((client) => client.patch(url, body,
-      headers: headers, encoding: encoding));
+  _withClient((client) => client.patch(url,
+      headers: headers, body: body, encoding: encoding));
 
 /// Sends an HTTP DELETE request with the given headers to the given URL, which
 /// can be a [Uri] or a [String].

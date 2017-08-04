@@ -6,23 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:collection/collection.dart';
-
-import 'http_unmodifiable_map.dart';
-
-/// Returns a [Map] with the values from [original] and the values from
-/// [updates].
-///
-/// For keys that are the same between [original] and [updates], the value in
-/// [updates] is used.
-///
-/// If [updates] is `null` or empty, [original] is returned unchanged.
-Map/*<K, V>*/ updateMap/*<K, V>*/(
-    Map/*<K, V>*/ original, Map/*<K, V>*/ updates) {
-  if (updates == null || updates.isEmpty) return original;
-
-  return new Map.from(original)..addAll(updates);
-}
+import 'byte_stream.dart';
 
 /// Converts a [Map] from parameter names to values to a URL query string.
 ///
@@ -92,6 +76,13 @@ Uint8List toUint8List(List<int> input) {
   return new Uint8List.fromList(input);
 }
 
+/// If [stream] is already a [ByteStream], returns it. Otherwise, wraps it in a
+/// [ByteStream].
+ByteStream toByteStream(Stream<List<int>> stream) {
+  if (stream is ByteStream) return stream;
+  return new ByteStream(stream);
+}
+
 /// Calls [onDone] once [stream] (a single-subscription [Stream]) is finished.
 /// The return value, also a single-subscription [Stream] should be used in
 /// place of [stream] after calling this method.
@@ -147,31 +138,4 @@ class Pair<E, F> {
 /// to [completer].
 void chainToCompleter(Future future, Completer completer) {
   future.then(completer.complete, onError: completer.completeError);
-}
-
-/// Returns the header with the given [name] in [headers].
-///
-/// This works even if [headers] is `null`, or if it's not yet a
-/// case-insensitive map.
-String getHeader(Map<String, String> headers, String name) {
-  if (headers == null) return null;
-  if (headers is HttpUnmodifiableMap) return headers[name];
-
-  for (var key in headers.keys) {
-    if (equalsIgnoreAsciiCase(key, name)) return headers[key];
-  }
-  return null;
-}
-
-/// Returns a [Uri] from the [url], which can be a [Uri] or a [String].
-///
-/// If the [url] is not a [Uri] or [String] an [ArgumentError] is thrown.
-Uri getUrl(url) {
-  if (url is Uri) {
-    return url;
-  } else if (url is String) {
-    return Uri.parse(url);
-  } else {
-    throw new ArgumentError.value(url, 'url', 'Not a Uri or String');
-  }
 }
